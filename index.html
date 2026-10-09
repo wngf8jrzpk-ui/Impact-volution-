@@ -1,0 +1,258 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Impact Évolution</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Impact Évolution"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#14181a">
+<style>
+:root{--bg:#14181a;--fg:#ece9e1;--card:#1e2427;--mut:#98a0a3;--ac:#d4402f;--bd:#333c40;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eceae3;--fg:#1a1d1e;--card:#fff;--mut:#666;--bd:#d4d1c8}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif;padding:12px;max-width:640px;margin:auto}
+h1{font-size:21px;margin:4px 0 10px;display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:.2px}
+h1 img{width:34px;height:34px;border-radius:8px}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button,.btn{flex:1;padding:12px;border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:10px;font-size:15px}
+.tabs button.on,.btn.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px}
+canvas{width:100%;border-radius:8px;touch-action:manipulation;display:block}
+.row{display:flex;gap:8px;margin-top:8px}.mut{color:var(--mut);font-size:14px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.stats div{background:var(--bg);border-radius:8px;padding:8px}.stats b{display:block;font-size:20px}
+select,input[type=number]{padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--fg);font-size:16px}
+label select,label input{display:block;width:100%;margin-top:2px}
+.it{display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--bd)}
+.it img{width:56px;height:56px;object-fit:cover;border-radius:6px}.it div{flex:1;font-size:14px}
+.hide{display:none}input[hidden]{display:none}
+#corr{background:var(--bg);border-radius:8px;padding:8px;font-size:14px;margin-top:6px}#corr:empty{display:none}
+</style></head><body>
+<h1><img src="icon-180.png" alt="">Impact Évolution</h1>
+<div id="toast" onclick="this.style.display='none'" style="display:none;position:sticky;top:0;z-index:9;background:#c0392b;color:#fff;padding:10px 12px;border-radius:10px;margin-bottom:8px;font-size:14px"></div>
+<div class="tabs"><button id="t1" class="on">Séance</button><button id="t2">Progression</button></div>
+
+<section id="v1">
+ <div class="card"><label class="mut">Arme<select id="arm"><option value="Pistolet">Pistolet</option><option value="Revolver">Revolver</option><option value="Longue">Arme longue (carabine…)</option></select></label>
+ <div class="row"><label class="mut" style="flex:1">Calibre<select id="cal"></select></label><label class="mut" style="flex:1">Distance (m) — télémètre<input id="dst" type="number" min="1" inputmode="decimal"></label></div>
+ <div class="row hide" id="lw"><label class="mut" style="flex:1">Unité<select id="un"><option value="mrad">mrad</option><option value="moa">MOA</option></select></label><label class="mut" style="flex:1">Valeur d'un clic<select id="clk"></select></label></div>
+ <b style="display:block;margin-top:10px">Cible</b><select id="tgt" style="width:100%;margin-top:4px"></select><div class="mut" id="tinfo" style="margin-top:6px"></div>
+ <div class="row hide" id="pw"><label class="mut" style="flex:1">Ø visuel noir<input id="pbk" type="number" value="200"></label><label class="mut" style="flex:1">Ø du 10<input id="p10" type="number" value="50"></label><label class="mut" style="flex:1">Pas anneaux (Ø)<input id="pst" type="number" value="50"></label></div></div>
+ <div class="card hide" id="sheet"></div>
+ <div class="card" id="start">
+  <button class="btn p" id="liveBtn" style="width:100%">🔭 Vision en direct</button>
+  <label class="btn" style="display:block;text-align:center;margin-top:8px"><span id="pick">📷 Photographier la cible</span><input id="file" type="file" accept="image/*" capture="environment" hidden></label>
+  <p class="mut">Fixez le téléphone (trépied), cadrez le visuel noir en entier et de face. Touchez « Verrouiller la cible » : les impacts s'ajoutent seuls, numérotés dans l'ordre.</p>
+ </div>
+ <div class="card hide" id="work">
+  <div id="msg" style="font-weight:600;margin-bottom:6px"></div>
+  <canvas id="cv"></canvas>
+  <div class="row hide" id="lbar"><button class="btn" id="lock">🔒 Verrouiller la cible</button><button class="btn p" id="stop">⏹ Fin du direct</button></div>
+  <div class="row"><button class="btn" id="auto">🔍 Détecter</button><button class="btn" id="undo">✋ Calibrer à la main</button></div>
+  <div class="row"><button class="btn p" id="nextBtn">📷 Photo après un tir</button></div><input id="file2" type="file" accept="image/*" capture="environment" hidden>
+  <div class="mut" style="margin-top:6px">Touchez un impact pour l'ajouter ; touchez un impact existant pour le retirer.</div>
+  <div class="stats" id="st"></div><div class="mut" id="tip" style="margin-top:6px"></div><div id="corr"></div><div id="shots" style="margin-top:6px"></div>
+  <div class="row"><button class="btn p" id="save">💾 Enregistrer la série</button></div>
+ </div>
+</section>
+
+<section id="v2" class="hide">
+ <div class="card">
+  <div class="row" style="margin:0"><select id="ft"></select><select id="per"><option value="d">Par jour</option><option value="m" selected>Par mois</option><option value="y">Par année</option></select>
+  <select id="met"><option value="avg">Score moyen / tir</option><option value="grp">Dispersion (mm)</option></select></div>
+  <div id="chart"></div>
+ </div>
+ <div class="card"><b>Historique</b><div id="list"></div>
+  <div class="row"><button class="btn" id="exp">⬇ Exporter</button><label class="btn" style="text-align:center">⬆ Importer<input id="imp" type="file" accept=".json" hidden></label></div></div>
+</section>
+
+<video id="vid" playsinline muted style="position:fixed;top:0;left:0;width:2px;height:2px;opacity:.01;pointer-events:none"></video>
+<script>
+const $=s=>document.querySelector(s);
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+let S=[];try{S=JSON.parse(localStorage.getItem('tirs_c50')||'[]')}catch(e){}
+const store=()=>{try{localStorage.setItem('tirs_c50',JSON.stringify(S))}catch(e){note("Stockage plein : exportez puis supprimez d'anciennes séances.")}};
+const cv=$('#cv'),ctx=cv.getContext('2d'),base=document.createElement('canvas');
+let auto=false,step=0,C=null,E=null,P=[];
+const TG={
+ c50:{g:'Pistolet',n:'Pistolet 50 m · C50',ds:50,r10:25,st:25,bk:100,ix:12.5,cal:2.8,d:'C50 : visuel noir Ø 200 mm · 10 = Ø 50 mm · mouche Ø 25 mm'},
+ p25:{g:'Pistolet',n:'Pistolet 25 m · précision (C50)',ds:25,r10:25,st:25,bk:100,ix:12.5,cal:2.8,d:'Cible C50 : visuel noir Ø 200 mm · 10 = Ø 50 mm'},
+ pis:{g:'Pistolet',n:'Pistolet à air 10 m',ds:10,r10:5.75,st:8,bk:29.75,ix:2.5,cal:2.25,d:'Cible Ø 155,5 mm · 10 = Ø 11,5 mm · visuel noir Ø 59,5 mm'},
+ air:{g:'Carabine',n:'Carabine à plomb 10 m',ds:10,r10:.25,st:2.5,bk:15.25,ix:0,cal:2.25,d:'Cible Ø 45,5 mm · 10 = point Ø 0,5 mm · visuel noir Ø 30,5 mm'},
+ r50:{g:'Carabine',n:'Carabine 50 m (.22 LR)',ds:50,r10:5.2,st:8,bk:56.2,ix:2.5,cal:2.8,d:'Cible ISSF 50 m : visuel noir Ø 112,4 mm · 10 = Ø 10,4 mm'},
+ perso:{g:'Carabine',n:'Autre cible / 100 m (à régler)',ds:100,r10:25,st:25,bk:100,ix:0,cal:2.8,d:'Réglez les dimensions de votre cible, en mm.'}};
+const CAL={Pistolet:[['4,5 mm plomb',4.5],['.22 LR',5.6],['9 mm',9],['.45 ACP',11.43]],Revolver:[['.22 LR',5.6],['.38 Spl / .357 Mag',9.1],['.44 Mag',10.9]],Longue:[['4,5 mm plomb',4.5],['.22 LR',5.6],['.223 Rem',5.7],['6,5 mm',6.5],['.308 Win',7.8],['9,3 mm',9.3]]};
+let tid='c50';try{tid=localStorage.getItem('tgt')||'c50'}catch(e){}if(!TG[tid])tid='c50';
+const T=()=>TG[tid],PM=()=>dist(C,E)/T().bk,F=v=>v<20?v.toFixed(1):v.toFixed(0),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+let cur=[];try{cur=JSON.parse(localStorage.getItem('cur_c50')||'[]')}catch(e){}
+const storeCur=()=>{try{localStorage.setItem('cur_c50',JSON.stringify(cur))}catch(e){}};
+const opts=()=>['Pistolet','Carabine'].map(g=>`<optgroup label="${g}">${Object.keys(TG).filter(k=>TG[k].g==g).map(k=>`<option value="${k}"${k==tid?' selected':''}>${TG[k].n}</option>`).join('')}</optgroup>`).join('');
+function armUI(keep){
+ const a=$('#arm').value,l=CAL[a];$('#cal').innerHTML=l.map(c=>`<option value="${c[1]}">${c[0]}</option>`).join('');
+ const sv=localStorage.getItem('calv');if(keep&&sv&&l.some(c=>c[1]==sv))$('#cal').value=sv;
+ calSet();$('#lw').classList.toggle('hide',a!='Longue');unitUI();
+ try{localStorage.setItem('arm',a)}catch(e){}}
+function calSet(){const v=+$('#cal').value/2;for(const k in TG)TG[k].cal=v;try{localStorage.setItem('calv',$('#cal').value)}catch(e){}}
+function unitUI(){const m=$('#un').value=='moa';$('#clk').innerHTML=(m?['0.125','0.25','0.5']:['0.05','0.1','0.2']).map(v=>`<option${v==(m?'0.25':'0.1')?' selected':''}>${v}</option>`).join('')}
+function tgtUI(){$('#tgt').innerHTML=opts();$('#tgt').disabled=cur.length>0;
+ if(!$('#ft').options.length)$('#ft').innerHTML=opts();
+ $('#pw').classList.toggle('hide',tid!='perso');
+ $('#tinfo').textContent=T().d+(cur.length?' (cible verrouillée pendant la séance)':'')}
+function setT(k){tid=k;try{localStorage.setItem('tgt',k)}catch(x){};$('#dst').value=T().ds;tgtUI()}
+$('#tgt').onchange=e=>setT(e.target.value);$('#arm').onchange=()=>armUI(false);$('#cal').onchange=calSet;$('#un').onchange=()=>{unitUI();draw()};$('#clk').onchange=draw;
+try{const a=localStorage.getItem('arm');if(a&&CAL[a])$('#arm').value=a}catch(e){}
+armUI(true);$('#dst').value=T().ds;
+const pset=()=>{const g=i=>+$(i).value||1,t=TG.perso;t.bk=g('#pbk')/2;t.r10=g('#p10')/2;t.st=g('#pst')/2;t.ix=0};
+['#pbk','#p10','#pst'].forEach(i=>$(i).oninput=pset);pset();
+const msgs=["","1/3 · Touchez le CENTRE de la cible","","3/3 · Impacts : détection auto ou touchez-les"];
+$('#t1').onclick=()=>tab(1);$('#t2').onclick=()=>{tab(2);render()};
+function tab(n){$('#v1').classList.toggle('hide',n!=1);$('#v2').classList.toggle('hide',n!=2);$('#t1').classList.toggle('on',n==1);$('#t2').classList.toggle('on',n==2)}
+
+$('#file').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();
+ im.onload=()=>{const k=Math.min(1,800/im.width);base.width=cv.width=Math.round(im.width*k);base.height=cv.height=Math.round(im.height*k);
+  base.getContext('2d').drawImage(im,0,0,base.width,base.height);
+  C=E=null;P=[];step=1;auto=false;$('#start').classList.add('hide');$('#work').classList.remove('hide');draw();if(autoCal()){ref=gray();draw();$('#auto').click()}};
+ im.src=URL.createObjectURL(f);e.target.value=''};
+$('#undo').onclick=()=>{auto=false;C=E=null;P=[];step=1;draw()};
+cv.onclick=e=>{const r=cv.getBoundingClientRect(),p={x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height};
+ if(step==1){C=p;step=2}else if(step==2){E=p;step=3;ref=gray()}
+ else if(step==3){const i=P.findIndex(q=>dist(q,p)<14);i>=0?P.splice(i,1):P.push(p)}draw()};
+
+function discOf(c0){
+ const w=c0.width,h=c0.height,d=c0.getContext('2d').getImageData(0,0,w,h).data,g=new Uint8Array(w*h),hist=new Array(256).fill(0);
+ for(let i=0;i<w*h;i++){g[i]=.3*d[i*4]+.59*d[i*4+1]+.11*d[i*4+2];hist[g[i]]++}
+ let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];let wb=0,sb=0,best=0,thr=100;
+ for(let t=0;t<256;t++){wb+=hist[t];if(!wb)continue;const wf=w*h-wb;if(!wf)break;sb+=t*hist[t];const mb=sb/wb,mf=(sum-sb)/wf,v=wb*wf*(mb-mf)**2;if(v>best){best=v;thr=t}}
+ const m=new Uint8Array(w*h);for(let i=0;i<w*h;i++)m[i]=g[i]<=thr?1:0;
+ let bc=null;const st=[];
+ for(let i=0;i<w*h;i++){if(m[i]!=1)continue;st.push(i);m[i]=2;let n=0,x0=w,x1=0,y0=h,y1=0;
+  while(st.length){const j=st.pop(),x=j%w,y=(j/w)|0;n++;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+   if(x>0&&m[j-1]==1){m[j-1]=2;st.push(j-1)}if(x<w-1&&m[j+1]==1){m[j+1]=2;st.push(j+1)}if(y>0&&m[j-w]==1){m[j-w]=2;st.push(j-w)}if(y<h-1&&m[j+w]==1){m[j+w]=2;st.push(j+w)}}
+  const bw=x1-x0+1,bh=y1-y0+1,f=n/(bw*bh),a=bw/bh;
+  if(n>w*h*.003&&x0>0&&y0>0&&x1<w-1&&y1<h-1&&f>.6&&f<.9&&a>.8&&a<1.25&&(!bc||n>bc.n))bc={n,cx:(x0+x1)/2,cy:(y0+y1)/2,r:(bw+bh)/4}}
+ return bc}
+function autoCal(){const b=discOf(base);if(!b)return false;C={x:b.cx,y:b.cy};E={x:b.cx+b.r,y:b.cy};step=3;auto=true;return true}
+function draw(){
+ ctx.drawImage(base,0,0);
+ $('#msg').textContent=(step==2?`2/3 · Touchez le BORD du visuel noir (Ø ${2*T().bk} mm)`:msgs[step])+(live&&step==1?' — ou « Verrouiller la cible »':'')+(live&&step==3?' · 🔴 Direct : tirez, les impacts s\'ajoutent seuls.':'')+(live&&wn?' ⚠ Image instable : ne bougez plus le téléphone.':'')+(auto&&step==3?' ✓ Cible repérée : vérifiez que les anneaux bleus collent aux anneaux imprimés.':'');
+ if(C){ctx.strokeStyle='#0af';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(C.x-10,C.y);ctx.lineTo(C.x+10,C.y);ctx.moveTo(C.x,C.y-10);ctx.lineTo(C.x,C.y+10);ctx.stroke()}
+ if(C&&E){const pm=PM(),t=T();ctx.lineWidth=1;ctx.strokeStyle='rgba(0,170,255,.8)';for(let i=0;i<10;i++){ctx.beginPath();ctx.arc(C.x,C.y,(t.r10+i*t.st)*pm,0,7);ctx.stroke()}
+  if(t.ix){ctx.strokeStyle='rgba(255,190,0,.95)';ctx.beginPath();ctx.arc(C.x,C.y,t.ix*pm,0,7);ctx.stroke()}}
+ ctx.font='bold 14px sans-serif';
+ P.forEach((p,i)=>{ctx.strokeStyle='#e00';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x,p.y,8,0,7);ctx.stroke();ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.strokeText(i+1,p.x+10,p.y-8);ctx.fillStyle='#e00';ctx.fillText(i+1,p.x+10,p.y-8)});
+ stats()}
+function sc(p){const t=T(),mm=dist(p,C)/PM(),e=Math.max(0,mm-t.cal);return{mm,pt:e<=t.r10?10:Math.max(0,10-Math.ceil((e-t.r10)/t.st)),x:!!t.ix&&e<=t.ix}}
+function stats(){
+ const st=$('#st'),tip=$('#tip'),ls=$('#shots');st.innerHTML=tip.textContent=ls.innerHTML='';$('#corr').innerHTML='';
+ if(step<3||!P.length)return null;
+ const pm=PM(),r=P.map(sc),tot=r.reduce((a,b)=>a+b.pt,0),nx=r.filter(a=>a.x).length,dm=+$('#dst').value||T().ds;
+ let g=0;for(const a of P)for(const b of P)g=Math.max(g,dist(a,b)/pm);
+ const mx=P.reduce((a,p)=>a+p.x-C.x,0)/P.length/pm,my=P.reduce((a,p)=>a+p.y-C.y,0)/P.length/pm;
+ st.innerHTML=`<div><b>${tot}</b>score (${P.length} tirs)</div><div><b>${(tot/P.length).toFixed(2)}</b>moyenne / tir</div><div><b>${F(g)} mm</b>dispersion</div>${T().ix?'<div><b>'+nx+'</b>dans le 10 intérieur</div>':''}`;
+ ls.innerHTML=r.map((a,i)=>`<div class="it" style="padding:5px 0"><div><b>Tir ${i+1}</b></div><div style="text-align:right"><b style="font-size:18px">${a.pt}</b>${a.x?' ✕':''} · ${F(a.mm)} mm du centre</div></div>`).join('');
+ const d=[];if(Math.abs(mx)>T().st*.3)d.push(mx>0?'à droite':'à gauche');if(Math.abs(my)>T().st*.3)d.push(my>0?'en bas':'en haut');
+ tip.textContent=d.length?`Groupement décalé ${d.join(' et ')} (${F(Math.hypot(mx,my))} mm du centre).`:'Groupement bien centré 👌';
+ const L=P[P.length-1],lx=(L.x-C.x)/pm,ly=(L.y-C.y)/pm;tip.textContent+=` Dernier tir (n°${P.length}) : ${F(Math.abs(lx))} mm ${lx>0?'à droite':'à gauche'}, ${F(Math.abs(ly))} mm ${ly>0?'en bas':'en haut'}.`;
+ if($('#arm').value=='Longue'){
+  const moa=$('#un').value=='moa',k=moa?3.4377:1,u=moa?'MOA':'mrad',ck=+$('#clk').value,cx=-mx/dm*k,cy=-my/dm*k,fm=v=>Math.abs(v).toFixed(2),cl=v=>(Math.abs(v)/ck).toFixed(1);
+  $('#corr').innerHTML=`<b>🎯 Correction à ${dm} m</b>${P.length<3?' <span class="mut">(≥ 3 tirs conseillé)</span>':''}<br>↔ <b>${fm(cx)} ${u}</b> vers la ${cx<0?'gauche':'droite'} · ${cl(cx)} clics<br>↕ <b>${fm(cy)} ${u}</b> vers le ${cy<0?'haut':'bas'} · ${cl(cy)} clics<div class="mut" style="margin-top:4px">1 clic = ${ck} ${u}. Calculé sur le centre du groupe.</div>`}
+ return{n:P.length,tot,avg:tot/P.length,g,x:nx}}
+
+$('#auto').onclick=()=>{
+ if(step<3){note('Calibrez d\'abord le centre et le bord de la cible.');return}
+ const w=base.width,h=base.height,gr=gray(),W=w+1,I=new Float64Array(W*(h+1));
+ for(let y=0;y<h;y++){let s=0;for(let x=0;x<w;x++){s+=gr[y*w+x];I[(y+1)*W+x+1]=I[y*W+x+1]+s}}
+ const t=T(),pm=PM(),R=(t.r10+9*t.st)*pm,D=2*t.cal,k=Math.max(6,Math.round(pm*D*1.4)),m=new Uint8Array(w*h);
+ for(let y=k;y<h-k;y++)for(let x=k;x<w-k;x++){if(Math.hypot(x-C.x,y-C.y)>R*1.02)continue;
+  const a=I[(y+k+1)*W+x+k+1]-I[(y-k)*W+x+k+1]-I[(y+k+1)*W+x-k]+I[(y-k)*W+x-k];
+  if(Math.abs(gr[y*w+x]-a/((2*k+1)**2))>40)m[y*w+x]=1}
+ P=blobs(m,w,h,Math.max(6,(pm*D*.4)**2),(pm*D*2.5)**2);draw();
+ if(!P.length)note('Aucun impact. Tirez, puis « Photo après un tir ». Vous pouvez aussi toucher un impact pour l\'ajouter.')};
+
+$('#save').onclick=()=>{
+ if(live)endLive();const o=stats();if(!o){note('Ajoutez au moins un impact.');return}
+ const t=document.createElement('canvas');t.width=300;t.height=Math.round(300*cv.height/cv.width);t.getContext('2d').drawImage(cv,0,0,t.width,t.height);
+ cur.push({...o,c:tid,pts:P.map(p=>sc(p).pt),thumb:t.toDataURL('image/jpeg',.6)});storeCur();
+ $('#work').classList.add('hide');$('#start').classList.remove('hide');step=0;renderCur()};
+function renderCur(){
+ if(cur.length&&TG[cur[0].c])tid=cur[0].c;tgtUI();
+ const el=$('#sheet');el.classList.toggle('hide',!cur.length);
+ $('#pick').textContent=cur.length?`📷 Série ${cur.length+1} : photographier la cible`:'📷 Photographier la cible';
+ if(!cur.length)return;let run=0,n=0;
+ el.innerHTML='<b>Feuille de match</b>'+cur.map((a,i)=>{run+=a.tot;n+=a.n;return `<div class="it"><img src="${a.thumb}"><div><b>Série ${i+1}</b> · ${a.pts.join(' · ')}<br>Total <b>${a.tot}</b> / ${a.n*10} · cumul ${run}</div></div>`}).join('')+`<div class="row"><button class="btn p" id="fin">✅ Terminer la séance (${run}/${n*10})</button><button class="btn" id="rm" style="flex:none">↩</button></div>`;
+ $('#fin').onclick=finish;$('#rm').onclick=()=>{cur.pop();storeCur();renderCur()}}
+function finish(){
+ const n=cur.reduce((a,c)=>a+c.n,0),tot=cur.reduce((a,c)=>a+c.tot,0);
+ S.push({t:Date.now(),c:cur[0].c||tid,arm:$('#arm').value,cal:$('#cal').selectedOptions[0].text,dm:+$('#dst').value,n,tot,avg:tot/n,g:cur.reduce((a,c)=>a+c.g,0)/cur.length,x:cur.reduce((a,c)=>a+c.x,0),thumb:cur[0].thumb,series:cur.map(({thumb,...c})=>c)});
+ store();cur=[];storeCur();renderCur();tab(2);render()}
+renderCur();
+
+let live=false,wn=false,stream=null,tm=null,ref=null,pend=0;const vid=$('#vid');
+function gray(){const w=base.width,h=base.height,d=base.getContext('2d').getImageData(0,0,w,h).data,g=new Float32Array(w*h);for(let i=0;i<w*h;i++)g[i]=.3*d[i*4]+.59*d[i*4+1]+.11*d[i*4+2];return g}
+function blobs(m,w,h,minA,maxA){const out=[],st=[];
+ for(let i=0;i<w*h;i++){if(m[i]!=1)continue;st.push(i);m[i]=2;let n=0,sx=0,sy=0,x0=w,x1=0,y0=h,y1=0;
+  while(st.length){const j=st.pop(),x=j%w,y=(j/w)|0;n++;sx+=x;sy+=y;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+   for(const q of[j-1,j+1,j-w,j+w])if(q>=0&&q<w*h&&m[q]==1){m[q]=2;st.push(q)}}
+  const bw=x1-x0+1,bh=y1-y0+1;if(n>=minA&&n<maxA&&n/(bw*bh)>.35&&bw/bh>.5&&bw/bh<2)out.push({x:sx/n,y:sy/n})}
+ return out}
+function note(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(note.t);note.t=setTimeout(()=>t.style.display='none',12000)}
+async function startLive(){
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){note("Caméra en direct indisponible : ouvrez l'app depuis l'adresse https hébergée.");return}
+ try{try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}})}
+  catch(e){if(e.name=='NotAllowedError'||e.name=='SecurityError')throw e;stream=await navigator.mediaDevices.getUserMedia({video:true})}
+  vid.srcObject=stream;await vid.play()}
+ catch(e){note('Caméra refusée ('+(e.name||'erreur')+') : autorisez-la dans Réglages › Safari › Caméra, ou utilisez « Photographier la cible ».');return}
+ C=E=null;P=[];step=1;auto=false;ref=null;pend=0;wn=false;live=true;
+ $('#start').classList.add('hide');$('#work').classList.remove('hide');$('#lbar').classList.remove('hide');tm=setInterval(tick,500)}
+function endLive(){clearInterval(tm);if(stream)stream.getTracks().forEach(t=>t.stop());live=false;wn=false;$('#lbar').classList.add('hide');draw()}
+function tick(){
+ const vw=vid.videoWidth;if(!vw)return;
+ const k=Math.min(1,800/vw),W=Math.round(vw*k),H=Math.round(vid.videoHeight*k);
+ if(base.width!=W||base.height!=H){base.width=cv.width=W;base.height=cv.height=H}
+ base.getContext('2d').drawImage(vid,0,0,W,H);
+ if(step==3&&ref){
+  const cu=gray(),pm=PM(),t=T(),R=(t.r10+9*t.st)*pm,D=2*t.cal,m=new Uint8Array(W*H);let n=0;
+  for(let y=Math.max(0,(C.y-R)|0);y<Math.min(H,C.y+R);y++)for(let x=Math.max(0,(C.x-R)|0);x<Math.min(W,C.x+R);x++){const i=y*W+x;if(Math.hypot(x-C.x,y-C.y)<R&&Math.abs(cu[i]-ref[i])>35){m[i]=1;n++}}
+  wn=n>Math.PI*R*R*.05;
+  if(wn){ref=cu;pend=0}
+  else{const f=blobs(m,W,H,Math.max(6,(pm*D*.4)**2),(pm*D*2.5)**2);
+   if(f.length){if(++pend>=2){f.forEach(b=>{if(!P.some(q=>dist(q,b)<pm*D*.8))P.push(b)});ref=cu;pend=0;try{navigator.vibrate(80)}catch(e){}}}else pend=0}}
+ draw()}
+$('#nextBtn').onclick=()=>{if(step<3){note("Faites d'abord la première photo de la cible.");return}$('#file2').click()};
+$('#file2').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>nextPhoto(im);im.src=URL.createObjectURL(f);e.target.value=''};
+function nextPhoto(im){
+ if(step<3||!C||!ref){note("Calibrez d'abord la cible.");return}
+ const k=Math.min(1,800/im.width),W=Math.round(im.width*k),H=Math.round(im.height*k),nc=document.createElement('canvas');nc.width=W;nc.height=H;nc.getContext('2d').drawImage(im,0,0,W,H);
+ const d2=discOf(nc);if(!d2){note('Cible non repérée : cadrez le visuel noir en entier, de face.');return}
+ const s2=dist(C,E)/d2.r,al=document.createElement('canvas');al.width=base.width;al.height=base.height;
+ const a=al.getContext('2d'),w=al.width,h=al.height;a.fillStyle='#fff';a.fillRect(0,0,w,h);
+ a.setTransform(s2,0,0,s2,C.x-d2.cx*s2,C.y-d2.cy*s2);a.drawImage(nc,0,0);a.setTransform(1,0,0,1,0,0);
+ const dd=a.getImageData(0,0,w,h).data,cu=new Float32Array(w*h);for(let i=0;i<w*h;i++)cu[i]=.3*dd[i*4]+.59*dd[i*4+1]+.11*dd[i*4+2];
+ const t=T(),pm=PM(),R=(t.r10+9*t.st)*pm,D=2*t.cal,m=new Uint8Array(w*h),ys=Math.max(0,(C.y-R)|0),ye=Math.min(h,C.y+R),xs=Math.max(0,(C.x-R)|0),xe=Math.min(w,C.x+R);let sh=0,c=0;
+ for(let y=ys;y<ye;y++)for(let x=xs;x<xe;x++)if(Math.hypot(x-C.x,y-C.y)<R){sh+=cu[y*w+x]-ref[y*w+x];c++}sh/=c||1;
+ for(let y=ys;y<ye;y++)for(let x=xs;x<xe;x++){const i=y*w+x;if(Math.hypot(x-C.x,y-C.y)<R&&Math.abs(cu[i]-ref[i]-sh)>40)m[i]=1}
+ const f=blobs(m,w,h,Math.max(6,(pm*D*.4)**2),(pm*D*2.5)**2);let add=0;
+ f.forEach(b=>{if(!P.some(q=>dist(q,b)<pm*D*.8)){P.push(b);add++}});
+ base.getContext('2d').drawImage(al,0,0);ref=cu;draw();
+ note(add?`${add} nouvel impact${add>1?'s':''} détecté${add>1?'s':''}.`:'Aucun nouvel impact. Touchez le trou pour le placer à la main.')}
+$('#liveBtn').onclick=startLive;$('#stop').onclick=endLive;
+$('#lock').onclick=()=>{if(autoCal()){ref=gray();pend=0;draw()}else note("Cible non repérée : touchez le centre puis le bord du visuel noir.")};
+$('#per').onchange=$('#met').onchange=$('#ft').onchange=render;
+function key(t,m){const d=new Date(t),p=n=>String(n).padStart(2,'0');return m=='y'?''+d.getFullYear():m=='m'?d.getFullYear()+'-'+p(d.getMonth()+1):d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())}
+function render(){
+ const per=$('#per').value,met=$('#met').value,ft=$('#ft').value,g={};
+ S.filter(s=>(s.c||'c50')==ft).forEach(s=>(g[key(s.t,per)]=g[key(s.t,per)]||[]).push(s[met]));
+ const ks=Object.keys(g).sort(),v=ks.map(k=>g[k].reduce((a,b)=>a+b,0)/g[k].length),el=$('#chart');
+ if(!ks.length)el.innerHTML='<p class="mut">Aucune séance enregistrée pour le moment.</p>';
+ else{const W=340,H=200,L=30,B=24,TT=10,max=met=='avg'?10:Math.max(1,...v)*1.2,X=i=>ks.length==1?W/2:L+i*(W-L-10)/(ks.length-1),Y=y=>TT+(H-TT-B)*(1-y/max);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="margin-top:8px"><g stroke="currentColor" opacity=".2">`;
+  for(let i=0;i<=4;i++){const y=Y(max*i/4);s+=`<line x1="${L}" x2="${W-5}" y1="${y}" y2="${y}"/>`}
+  s+='</g><g fill="currentColor" font-size="10" opacity=".6">';
+  for(let i=0;i<=4;i++)s+=`<text x="2" y="${Y(max*i/4)+3}">${(max*i/4).toFixed(1)}</text>`;
+  const sp=Math.ceil(ks.length/6);ks.forEach((k,i)=>{if(i%sp==0)s+=`<text x="${X(i)}" y="${H-6}" text-anchor="middle">${k.length>7?k.slice(5).split('-').reverse().join('/'):k}</text>`});
+  s+=`</g><polyline fill="none" stroke="#d4402f" stroke-width="2.5" points="${v.map((y,i)=>X(i)+','+Y(y)).join(' ')}"/>`;
+  v.forEach((y,i)=>s+=`<circle cx="${X(i)}" cy="${Y(y)}" r="4" fill="#d4402f"/>`);el.innerHTML=s+'</svg>'}
+ $('#list').innerHTML=S.map((s,i)=>({s,i})).filter(o=>(o.s.c||'c50')==ft).reverse().map(({s,i})=>`<div class="it"><img src="${s.thumb}"><div><b>${new Date(s.t).toLocaleDateString('fr-FR')}</b>${s.arm?' · '+s.arm+' '+s.cal+(s.dm?' · '+s.dm+' m':''):''}<br>${s.tot} pts · ${s.n} tirs${s.series?'<br>Séries : '+s.series.map(a=>a.tot).join(' · '):''} · moy. ${s.avg.toFixed(2)} · disp. ${F(s.g)} mm</div><button class="btn" style="flex:none;padding:6px 10px" onclick="del(${i})">🗑</button></div>`).join('')||'<p class="mut">—</p>'}
+function del(i){if(confirm('Supprimer cette séance ?')){S.splice(i,1);store();render()}}
+$('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='impact-evolution-sauvegarde.json';a.click()};
+$('#imp').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;f.text().then(t=>{try{const a=JSON.parse(t);if(!Array.isArray(a))throw 0;S=S.concat(a.filter(x=>!S.some(y=>y.t==x.t)));store();render();note('Sauvegarde importée.')}catch(x){note('Fichier invalide.')}})};
+</script></body></html>
